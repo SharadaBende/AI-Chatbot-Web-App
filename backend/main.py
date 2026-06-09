@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
-import anthropic
+from groq import Groq
 import os
 
 from database import engine, get_db, Base
@@ -23,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 @app.get("/")
 def read_root():
@@ -32,14 +32,13 @@ def read_root():
 @app.post("/chat", response_model=MessageResponse)
 def chat(request: MessageRequest, db: Session = Depends(get_db)):
     try:
-        response = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=1024,
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "user", "content": request.message}
             ]
         )
-        bot_response = response.content[0].text
+        bot_response = response.choices[0].message.content
 
         conversation = Conversation(
             user_message=request.message,
@@ -52,6 +51,7 @@ def chat(request: MessageRequest, db: Session = Depends(get_db)):
         return conversation
 
     except Exception as e:
+        print("ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history")
