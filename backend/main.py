@@ -15,9 +15,6 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-
-from auth import hash_password, verify_password, create_access_token, get_current_user
-
 load_dotenv()
 
 Base.metadata.create_all(bind=engine)
