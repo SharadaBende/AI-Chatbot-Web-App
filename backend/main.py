@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -8,6 +9,10 @@ import os
 from database import engine, get_db, Base
 from models import Conversation, User, Message
 from schemas import MessageRequest, UserCreate, Token, ConversationResponse, ConversationDetail, UpdateConversation
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
 load_dotenv()
@@ -48,7 +53,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return {"message": "User created successfully"}
 
 @app.post("/login", response_model=Token)
-def login(user: UserCreate, db: Session = Depends(get_db)):
+def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
