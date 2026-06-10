@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Login from "./Login";
 import Register from "./Register";
@@ -8,17 +8,25 @@ function App() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [page, setPage] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+    const savedUsername = localStorage.getItem("username");
     if (token) {
       setIsLoggedIn(true);
+      setUsername(savedUsername || "User");
       fetchHistory(token);
     }
   }, []);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
   const fetchHistory = async (token) => {
     try {
@@ -68,7 +76,10 @@ function App() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") sendMessage();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
   const loadConversation = (item) => {
@@ -76,117 +87,234 @@ function App() {
       { role: "user", text: item.user_message, time: "" },
       { role: "bot", text: item.bot_response, time: "" },
     ]);
-    setShowHistory(false);
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("username");
     setIsLoggedIn(false);
     setMessages([]);
     setHistory([]);
     setPage("login");
   };
 
+  const getInitials = (name) => {
+    return name ? name.charAt(0).toUpperCase() : "U";
+  };
+
   if (!isLoggedIn) {
     if (page === "register") {
       return <Register onRegister={() => setPage("login")} goToLogin={() => setPage("login")} />;
     }
-    return <Login onLogin={() => { setIsLoggedIn(true); fetchHistory(); }} goToRegister={() => setPage("register")} />;
+    return (
+      <Login
+        onLogin={() => {
+          setIsLoggedIn(true);
+          setUsername(localStorage.getItem("username") || "User");
+          fetchHistory();
+        }}
+        goToRegister={() => setPage("register")}
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-lg flex h-[90vh]">
+    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
 
-        {/* Sidebar */}
-        <div className={`${showHistory ? "w-72" : "w-0"} transition-all duration-300 overflow-hidden bg-gray-50 border-r rounded-l-2xl flex flex-col`}>
-          <div className="p-4 bg-purple-600 text-white font-bold text-lg rounded-tl-2xl">
-            Chat History
+      {/* Sidebar */}
+      <div className={`${showHistory ? "w-72" : "w-0"} transition-all duration-300 overflow-hidden bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0`}>
+        
+        {/* Sidebar Header */}
+        <div className="p-4 flex items-center justify-between border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <span className="font-semibold text-sm">AI Chatbot</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {history.length === 0 && (
-              <p className="text-gray-400 text-sm text-center mt-4">No history yet</p>
-            )}
+        </div>
+
+        {/* New Chat Button */}
+        <div className="p-3">
+          <button
+            onClick={startNewChat}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition text-sm text-gray-300 hover:text-white border border-gray-700 hover:border-gray-600"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New chat
+          </button>
+        </div>
+
+        {/* History */}
+        <div className="flex-1 overflow-y-auto px-3 pb-3">
+          {history.length > 0 && (
+            <p className="text-gray-500 text-xs font-medium px-2 mb-2 mt-1">Recent</p>
+          )}
+          <div className="space-y-1">
             {history.map((item) => (
-              <div
+              <button
                 key={item.id}
                 onClick={() => loadConversation(item)}
-                className="p-3 bg-white rounded-xl shadow-sm cursor-pointer hover:bg-purple-50 border border-gray-200"
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-gray-800 transition group"
               >
-                <p className="text-sm text-gray-700 font-medium truncate">{item.user_message}</p>
-                <p className="text-xs text-gray-400 truncate">{item.bot_response}</p>
-              </div>
+                <p className="text-sm text-gray-300 group-hover:text-white truncate">{item.user_message}</p>
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Main Chat */}
-        <div className="flex-1 flex flex-col">
-
-          {/* Header */}
-          <div className="bg-purple-600 text-white text-center py-4 rounded-tr-2xl flex items-center justify-between px-4">
-            <button onClick={() => setShowHistory(!showHistory)} className="text-white text-xl font-bold hover:opacity-75">
-              ☰
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold">AI Chatbot</h1>
-              <p className="text-sm opacity-75">Powered by LLaMA 3.3</p>
+        {/* User Profile */}
+        <div className="p-3 border-t border-gray-800">
+          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-800 transition cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold">
+                {getInitials(username)}
+              </div>
+              <span className="text-sm text-gray-300 group-hover:text-white font-medium">{username}</span>
             </div>
-            <button onClick={handleLogout} className="text-white text-sm hover:opacity-75 font-medium">
-              Logout
+            <button
+              onClick={handleLogout}
+              className="text-gray-500 hover:text-red-400 transition"
+              title="Logout"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
             </button>
           </div>
+        </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 && (
-              <p className="text-center text-gray-400 mt-10">Start a conversation!</p>
-            )}
-            {messages.map((msg, index) => (
-              <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm ${
-                  msg.role === "user"
-                    ? "bg-purple-600 text-white rounded-br-none"
-                    : "bg-gray-200 text-gray-800 rounded-bl-none"
-                }`}>
-                  {msg.text}
-                  <div className={`text-xs mt-1 ${msg.role === "user" ? "text-purple-200" : "text-gray-400"}`}>
-                    {msg.time}
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Top Bar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="text-gray-400 hover:text-white transition p-1.5 rounded-lg hover:bg-gray-800"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <span className="text-sm font-medium text-gray-300">New chat</span>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-4">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h2 className="text-2xl font-semibold text-white mb-2">How can I help you today?</h2>
+              <p className="text-gray-500 text-sm">Ask me anything — I'm here to help!</p>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+              {messages.map((msg, index) => (
+                <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  
+                  {/* Bot Avatar */}
+                  {msg.role === "bot" && (
+                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
+
+                  <div className={`max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
+                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-gray-700 text-white rounded-tr-sm"
+                        : "bg-gray-800 text-gray-100 rounded-tl-sm"
+                    }`}>
+                      {msg.text}
+                    </div>
+                    {msg.time && (
+                      <span className="text-xs text-gray-600 mt-1 px-1">{msg.time}</span>
+                    )}
+                  </div>
+
+                  {/* User Avatar */}
+                  {msg.role === "user" && (
+                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 mt-1 text-sm font-semibold">
+                      {getInitials(username)}
+                    </div>
+                  )}
+
+                </div>
+              ))}
+
+              {/* Typing Animation */}
+              {loading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <div className="bg-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]"></span>
                   </div>
                 </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-200 text-gray-500 px-4 py-2 rounded-2xl text-sm flex items-center gap-1">
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="p-4 border-t flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
-              className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-purple-500"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={loading}
-              className="bg-purple-600 text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
-            >
-              Send
-            </button>
-          </div>
-
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </div>
+
+        {/* Input Area */}
+        <div className="px-4 py-4 border-t border-gray-800">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-end gap-3 bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 focus-within:border-gray-600 transition">
+              <textarea
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Message AI Chatbot..."
+                rows={1}
+                className="flex-1 bg-transparent text-white text-sm outline-none resize-none placeholder-gray-500 leading-relaxed max-h-32"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={loading || !input.trim()}
+                className="w-8 h-8 bg-white rounded-lg flex items-center justify-center hover:bg-gray-200 transition disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                  <polyline points="5 12 12 5 19 12"></polyline>
+                </svg>
+              </button>
+            </div>
+            <p className="text-center text-gray-600 text-xs mt-2">Press Enter to send · Shift+Enter for new line</p>
+          </div>
+        </div>
+
       </div>
     </div>
   );
