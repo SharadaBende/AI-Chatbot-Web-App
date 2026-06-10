@@ -3,12 +3,15 @@ import axios from "axios";
 import Login from "./Login";
 import Register from "./Register";
 
+const api = axios.create({ baseURL: "http://127.0.0.1:8000" });
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(true);
+  const [conversations, setConversations] = useState([]);
+  const [currentConvId, setCurrentConvId] = useState(null);
+  const [showSidebar, setShowSidebar] = useState(true);
   const [page, setPage] = useState("login");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
@@ -20,7 +23,7 @@ function App() {
     if (token) {
       setIsLoggedIn(true);
       setUsername(savedUsername || "User");
-      fetchHistory(token);
+      fetchConversations(token);
     }
   }, []);
 
@@ -28,21 +31,40 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const fetchHistory = async (token) => {
+  const authHeaders = () => ({
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+  });
+
+  const fetchConversations = async () => {
     try {
-      const t = token || localStorage.getItem("token");
-      const response = await axios.get("http://127.0.0.1:8000/history", {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      setHistory(response.data);
-    } catch (error) {
-      console.error("Failed to fetch history:", error);
+      const res = await api.get("/conversations", authHeaders());
+      setConversations(res.data);
+    } catch (err) {
+      console.error(err);
     }
+  };
+
+  const loadConversation = async (convId) => {
+    try {
+      const res = await api.get(`/conversations/${convId}`, authHeaders());
+      setCurrentConvId(convId);
+      setMessages(res.data.messages.map(m => ({
+        role: m.role === "assistant" ? "bot" : "user",
+        text: m.content,
+        time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const startNewChat = () => {
+    setCurrentConvId(null);
+    setMessages([]);
   };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
-    const token = localStorage.getItem("token");
     const userMessage = {
       role: "user",
       text: input,
@@ -53,23 +75,28 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        "http://127.0.0.1:8000/chat",
-        { message: input },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const botMessage = {
+      const res = await api.post("/chat", {
+        message: input,
+        conversation_id: currentConvId
+      }, authHeaders());
+
+      if (!currentConvId) {
+        setCurrentConvId(res.data.conversation_id);
+      }
+
+      setMessages((prev) => [...prev, {
         role: "bot",
-        text: response.data.bot_response,
+        text: res.data.bot_response,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-      setMessages((prev) => [...prev, botMessage]);
-      fetchHistory();
-    } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "bot", text: "Something went wrong. Please try again.", time: "" },
-      ]);
+      }]);
+
+      fetchConversations();
+    } catch (err) {
+      setMessages((prev) => [...prev, {
+        role: "bot",
+        text: "Something went wrong. Please try again.",
+        time: "",
+      }]);
     } finally {
       setLoading(false);
     }
@@ -82,29 +109,15 @@ function App() {
     }
   };
 
-  const loadConversation = (item) => {
-    setMessages([
-      { role: "user", text: item.user_message, time: "" },
-      { role: "bot", text: item.bot_response, time: "" },
-    ]);
-  };
-
-  const startNewChat = () => {
-    setMessages([]);
-  };
-
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("username");
+    localStorage.clear();
     setIsLoggedIn(false);
     setMessages([]);
-    setHistory([]);
+    setConversations([]);
     setPage("login");
   };
 
-  const getInitials = (name) => {
-    return name ? name.charAt(0).toUpperCase() : "U";
-  };
+  const getInitials = (name) => name?.charAt(0).toUpperCase() || "U";
 
   if (!isLoggedIn) {
     if (page === "register") {
@@ -115,7 +128,7 @@ function App() {
         onLogin={() => {
           setIsLoggedIn(true);
           setUsername(localStorage.getItem("username") || "User");
-          fetchHistory();
+          fetchConversations();
         }}
         goToRegister={() => setPage("register")}
       />
@@ -126,27 +139,23 @@ function App() {
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
 
       {/* Sidebar */}
-      <div className={`${showHistory ? "w-72" : "w-0"} transition-all duration-300 overflow-hidden bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0`}>
-        
-        {/* Sidebar Header */}
-        <div className="p-4 flex items-center justify-between border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span className="font-semibold text-sm">AI Chatbot</span>
+      <div className={`${showSidebar ? "w-64" : "w-0"} transition-all duration-300 overflow-hidden bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0`}>
+
+        <div className="p-4 flex items-center gap-2 border-b border-gray-800">
+          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
+          <span className="font-semibold text-sm">AI Chatbot</span>
         </div>
 
-        {/* New Chat Button */}
         <div className="p-3">
           <button
             onClick={startNewChat}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition text-sm text-gray-300 hover:text-white border border-gray-700 hover:border-gray-600"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition text-sm text-gray-300 hover:text-white border border-gray-700"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -154,38 +163,32 @@ function App() {
           </button>
         </div>
 
-        {/* History */}
-        <div className="flex-1 overflow-y-auto px-3 pb-3">
-          {history.length > 0 && (
-            <p className="text-gray-500 text-xs font-medium px-2 mb-2 mt-1">Recent</p>
+        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
+          {conversations.length > 0 && (
+            <p className="text-gray-500 text-xs font-medium px-2 mb-2">Recent</p>
           )}
-          <div className="space-y-1">
-            {history.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => loadConversation(item)}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-gray-800 transition group"
-              >
-                <p className="text-sm text-gray-300 group-hover:text-white truncate">{item.user_message}</p>
-              </button>
-            ))}
-          </div>
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => loadConversation(conv.id)}
+              className={`w-full text-left px-3 py-2.5 rounded-xl hover:bg-gray-800 transition text-sm truncate ${
+                currentConvId === conv.id ? "bg-gray-800 text-white" : "text-gray-400"
+              }`}
+            >
+              {conv.title}
+            </button>
+          ))}
         </div>
 
-        {/* User Profile */}
         <div className="p-3 border-t border-gray-800">
-          <div className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-800 transition cursor-pointer group">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-sm font-semibold">
                 {getInitials(username)}
               </div>
-              <span className="text-sm text-gray-300 group-hover:text-white font-medium">{username}</span>
+              <span className="text-sm text-gray-300">{username}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-gray-500 hover:text-red-400 transition"
-              title="Logout"
-            >
+            <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 transition" title="Logout">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                 <polyline points="16 17 21 12 16 7"></polyline>
@@ -194,16 +197,14 @@ function App() {
             </button>
           </div>
         </div>
-
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* Top Bar */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
           <button
-            onClick={() => setShowHistory(!showHistory)}
+            onClick={() => setShowSidebar(!showSidebar)}
             className="text-gray-400 hover:text-white transition p-1.5 rounded-lg hover:bg-gray-800"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -212,10 +213,11 @@ function App() {
               <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
-          <span className="text-sm font-medium text-gray-300">New chat</span>
+          <span className="text-sm font-medium text-gray-400">
+            {currentConvId ? conversations.find(c => c.id === currentConvId)?.title : "New chat"}
+          </span>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -224,15 +226,13 @@ function App() {
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-white mb-2">How can I help you today?</h2>
+              <h2 className="text-2xl font-semibold mb-2">How can I help you today?</h2>
               <p className="text-gray-500 text-sm">Ask me anything — I'm here to help!</p>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
               {messages.map((msg, index) => (
                 <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  
-                  {/* Bot Avatar */}
                   {msg.role === "bot" && (
                     <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -240,33 +240,23 @@ function App() {
                       </svg>
                     </div>
                   )}
-
-                  <div className={`max-w-[75%] ${msg.role === "user" ? "items-end" : "items-start"} flex flex-col`}>
-                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-gray-700 text-white rounded-tr-sm"
-                        : "bg-gray-800 text-gray-100 rounded-tl-sm"
+                  <div className={`max-w-[75%] flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                    <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                      msg.role === "user" ? "bg-gray-700 text-white rounded-tr-sm" : "bg-gray-800 text-gray-100 rounded-tl-sm"
                     }`}>
                       {msg.text}
                     </div>
-                    {msg.time && (
-                      <span className="text-xs text-gray-600 mt-1 px-1">{msg.time}</span>
-                    )}
+                    {msg.time && <span className="text-xs text-gray-600 mt-1 px-1">{msg.time}</span>}
                   </div>
-
-                  {/* User Avatar */}
                   {msg.role === "user" && (
                     <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0 mt-1 text-sm font-semibold">
                       {getInitials(username)}
                     </div>
                   )}
-
                 </div>
               ))}
-
-              {/* Typing Animation */}
               {loading && (
-                <div className="flex gap-3 justify-start">
+                <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                       <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -284,7 +274,6 @@ function App() {
           )}
         </div>
 
-        {/* Input Area */}
         <div className="px-4 py-4 border-t border-gray-800">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-3 bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 focus-within:border-gray-600 transition">
@@ -314,7 +303,6 @@ function App() {
             <p className="text-center text-gray-600 text-xs mt-2">Press Enter to send · Shift+Enter for new line</p>
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from typing import List
 
 class UserCreate(BaseModel):
     username: str
@@ -12,17 +13,29 @@ class Token(BaseModel):
 
 class MessageRequest(BaseModel):
     message: str
+    conversation_id: int | None = None
 
-class MessageResponse(BaseModel):
-    user_message: str
-    bot_response: str
+class MessageItem(BaseModel):
+    role: str
+    content: str
     created_at: datetime
 
     class Config:
         from_attributes = True
 
+class ConversationResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
-    email: str = ""
+    class Config:
+        from_attributes = True
+
+class ConversationDetail(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    messages: List[MessageItem]
+
+    class Config:
+        from_attributes = True
