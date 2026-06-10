@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import Login from "./Login";
+import Register from "./Register";
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -7,14 +9,23 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [page, setPage] = useState("login");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    fetchHistory();
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsLoggedIn(true);
+      fetchHistory(token);
+    }
   }, []);
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (token) => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/history");
+      const t = token || localStorage.getItem("token");
+      const response = await axios.get("http://127.0.0.1:8000/history", {
+        headers: { Authorization: `Bearer ${t}` },
+      });
       setHistory(response.data);
     } catch (error) {
       console.error("Failed to fetch history:", error);
@@ -23,7 +34,7 @@ function App() {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
-
+    const token = localStorage.getItem("token");
     const userMessage = {
       role: "user",
       text: input,
@@ -34,10 +45,11 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://127.0.0.1:8000/chat", {
-        message: input,
-      });
-
+      const response = await axios.post(
+        "http://127.0.0.1:8000/chat",
+        { message: input },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const botMessage = {
         role: "bot",
         text: response.data.bot_response,
@@ -66,6 +78,21 @@ function App() {
     ]);
     setShowHistory(false);
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    setMessages([]);
+    setHistory([]);
+    setPage("login");
+  };
+
+  if (!isLoggedIn) {
+    if (page === "register") {
+      return <Register onRegister={() => setPage("login")} goToLogin={() => setPage("login")} />;
+    }
+    return <Login onLogin={() => { setIsLoggedIn(true); fetchHistory(); }} goToRegister={() => setPage("register")} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -98,17 +125,16 @@ function App() {
 
           {/* Header */}
           <div className="bg-purple-600 text-white text-center py-4 rounded-tr-2xl flex items-center justify-between px-4">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="text-white text-xl font-bold hover:opacity-75"
-            >
+            <button onClick={() => setShowHistory(!showHistory)} className="text-white text-xl font-bold hover:opacity-75">
               ☰
             </button>
             <div>
               <h1 className="text-2xl font-bold">AI Chatbot</h1>
               <p className="text-sm opacity-75">Powered by LLaMA 3.3</p>
             </div>
-            <div className="w-6" />
+            <button onClick={handleLogout} className="text-white text-sm hover:opacity-75 font-medium">
+              Logout
+            </button>
           </div>
 
           {/* Messages */}
