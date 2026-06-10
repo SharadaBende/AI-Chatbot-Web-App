@@ -26,6 +26,7 @@ class MessageItem(BaseModel):
 class ConversationResponse(BaseModel):
     id: int
     title: str
+    pinned: bool
     created_at: datetime
 
     class Config:
@@ -34,8 +35,13 @@ class ConversationResponse(BaseModel):
 class ConversationDetail(BaseModel):
     id: int
     title: str
+    pinned: bool
     created_at: datetime
     messages: List[MessageItem]
 
     class Config:
         from_attributes = True
+
+class UpdateConversation(BaseModel):
+    title: str | None = None
+    pinned: bool | None = None

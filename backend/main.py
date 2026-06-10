@@ -7,7 +7,7 @@ import os
 
 from database import engine, get_db, Base
 from models import Conversation, User, Message
-from schemas import MessageRequest, UserCreate, Token, ConversationResponse, ConversationDetail
+from schemas import MessageRequest, UserCreate, Token, ConversationResponse, ConversationDetail, UpdateConversation
 from auth import hash_password, verify_password, create_access_token, get_current_user
 
 load_dotenv()
@@ -79,10 +79,38 @@ def get_conversation(conversation_id: int, db: Session = Depends(get_db), curren
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conv
 
+@app.patch("/conversations/{conversation_id}")
+def update_conversation(conversation_id: int, data: UpdateConversation, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    conv = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if data.title is not None:
+        conv.title = data.title
+    if data.pinned is not None:
+        conv.pinned = data.pinned
+    db.commit()
+    db.refresh(conv)
+    return conv
+
+@app.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    conv = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    db.query(Message).filter(Message.conversation_id == conversation_id).delete()
+    db.delete(conv)
+    db.commit()
+    return {"message": "Deleted successfully"}
+
 @app.post("/chat")
 def chat(request: MessageRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
-        # Create new conversation if none provided
         if request.conversation_id is None:
             conversation = Conversation(user_id=current_user.id, title=request.message[:40])
             db.add(conversation)
@@ -96,7 +124,6 @@ def chat(request: MessageRequest, db: Session = Depends(get_db), current_user: U
             if not conversation:
                 raise HTTPException(status_code=404, detail="Conversation not found")
 
-        # Save user message
         user_msg = Message(
             conversation_id=conversation.id,
             role="user",
@@ -105,22 +132,18 @@ def chat(request: MessageRequest, db: Session = Depends(get_db), current_user: U
         db.add(user_msg)
         db.commit()
 
-        # Get all messages in this conversation for context
         all_messages = db.query(Message).filter(
             Message.conversation_id == conversation.id
         ).order_by(Message.created_at).all()
 
-        # Build message history for AI
         ai_messages = [{"role": m.role, "content": m.content} for m in all_messages]
 
-        # Call Groq AI
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=ai_messages
         )
         bot_response = response.choices[0].message.content
 
-        # Save bot message
         bot_msg = Message(
             conversation_id=conversation.id,
             role="assistant",
