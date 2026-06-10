@@ -54,6 +54,7 @@ def chat(request: MessageRequest, db: Session = Depends(get_db)):
         print("ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/history")
 def get_history(db: Session = Depends(get_db)):
     conversations = db.query(Conversation).order_by(Conversation.created_at.desc()).all()
