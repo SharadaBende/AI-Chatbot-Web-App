@@ -18,10 +18,9 @@ function Login({ onLogin, goToRegister }) {
     setError("");
     try {
        const response = await axios.post("https://ai-chatbot-web-app-kyg2.onrender.com/login", {
-        username,
-        email: "",
-        password,
-      });
+  username,
+  password,
+});
       localStorage.setItem("token", response.data.access_token);
       localStorage.setItem("username", username);
       onLogin();
