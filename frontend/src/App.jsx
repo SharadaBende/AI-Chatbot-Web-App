@@ -5,6 +5,14 @@ import Register from "./Register";
 
 const api = axios.create({ baseURL: "http://127.0.0.1:8000" });
 
+const Logo = ({ size = 28 }) => (
+  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+    <rect x="5" y="5" width="90" height="70" rx="18" fill="#7c3aed"/>
+    <path d="M20 73 L10 90 L30 73 Z" fill="#7c3aed"/>
+    <path d="M68 18 L52 48 L62 48 L50 75 L74 38 L63 38 Z" fill="white"/>
+  </svg>
+);
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -142,11 +150,7 @@ function App() {
       <div className={`${showSidebar ? "w-64" : "w-0"} transition-all duration-300 overflow-hidden bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0`}>
 
         <div className="p-4 flex items-center gap-2 border-b border-gray-800">
-          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+          <Logo size={28} />
           <span className="font-semibold text-sm">AI Chatbot</span>
         </div>
 
@@ -221,10 +225,8 @@ function App() {
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+              <div className="mb-6">
+                <Logo size={56} />
               </div>
               <h2 className="text-2xl font-semibold mb-2">How can I help you today?</h2>
               <p className="text-gray-500 text-sm">Ask me anything — I'm here to help!</p>
@@ -234,10 +236,8 @@ function App() {
               {messages.map((msg, index) => (
                 <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   {msg.role === "bot" && (
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+                    <div className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden">
+                      <Logo size={32} />
                     </div>
                   )}
                   <div className={`max-w-[75%] flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
@@ -257,10 +257,8 @@ function App() {
               ))}
               {loading && (
                 <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-1">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 mt-1 overflow-hidden">
+                    <Logo size={32} />
                   </div>
                   <div className="bg-gray-800 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]"></span>

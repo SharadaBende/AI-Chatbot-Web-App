@@ -43,12 +43,12 @@ function Register({ onRegister, goToLogin }) {
 
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-        </div>
+  <svg width="52" height="52" viewBox="0 0 120 120" fill="none">
+    <rect x="5" y="5" width="90" height="70" rx="18" fill="#7c3aed"/>
+    <path d="M20 73 L10 90 L30 73 Z" fill="#7c3aed"/>
+    <path d="M68 18 L52 48 L62 48 L50 75 L74 38 L63 38 Z" fill="white"/>
+  </svg>
+</div>
 
         <h1 className="text-white text-3xl font-semibold text-center mb-2">Create an account</h1>
         <p className="text-gray-400 text-center mb-8 text-sm">Start chatting with AI today</p>
