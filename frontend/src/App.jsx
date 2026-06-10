@@ -3,7 +3,7 @@ import axios from "axios";
 import Login from "./Login";
 import Register from "./Register";
 
-const api = axios.create({ baseURL: "http://127.0.0.1:8000" });
+const api = axios.create({ baseURL: "https://ai-chatbot-web-app-kyg2.onrender.com" });
 
 const Logo = ({ size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 120 120" fill="none">

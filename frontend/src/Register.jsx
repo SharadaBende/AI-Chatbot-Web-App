@@ -43,7 +43,7 @@ function Register({ onRegister, goToLogin }) {
     setLoading(true);
     setError("");
     try {
-      await axios.post("http://127.0.0.1:8000/register", { username, email, password });
+      await axios.post("https://ai-chatbot-web-app-kyg2.onrender.com/register", { username, email, password });
       onRegister();
     } catch (err) {
       setError("Username already exists. Try another one.");

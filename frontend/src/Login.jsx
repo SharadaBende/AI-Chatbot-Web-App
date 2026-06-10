@@ -17,7 +17,7 @@ function Login({ onLogin, goToRegister }) {
     setLoading(true);
     setError("");
     try {
-      const response = await axios.post("http://127.0.0.1:8000/login", {
+       const response = await axios.post("https://ai-chatbot-web-app-kyg2.onrender.com/login", {
         username,
         email: "",
         password,
